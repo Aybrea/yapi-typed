@@ -33,7 +33,7 @@ pnpm --filter yapi-to-ts exec yapi-to-ts init
 pnpm --filter yapi-to-ts exec yapi-to-ts generate
 ```
 
-Note: Generated clients depend on `@yapi-to-ts/runtime` (install in your app).
+Note: Generated clients depend on `yapi-to-ts/runtime` (install `yapi-to-ts` as a runtime dependency).
 
 ## Monorepo
 

@@ -22,11 +22,12 @@ const initCommand = defineCommand({
     const target = path.join(cwd, 'yapi-to-ts.config.ts')
     if (await fs.pathExists(target)) {
       consola.warn(`Config already exists at ${target}`)
-      return
+      process.exit(0)
     }
     const content = `import { defineConfig } from 'yapi-to-ts'\n\nexport default defineConfig({\n  servers: [\n    {\n      serverUrl: 'https://yapi.example.com',\n      projects: [\n        {\n          token: 'YOUR_PROJECT_TOKEN',\n          categories: [\n            {\n              id: 0,\n              outputFilePath: 'src/api/index.ts',\n            },\n          ],\n        },\n      ],\n    },\n  ],\n})\n`
     await fs.outputFile(target, content)
     consola.success(`Created ${target}`)
+    process.exit(0)
   },
 })
 
@@ -103,6 +104,7 @@ const configCommand = defineCommand({
     })
     consola.info(configFile ? `Config file: ${configFile}` : 'Config file: <auto>')
     consola.log(JSON.stringify(config, null, 2))
+    process.exit(0)
   },
 })
 

@@ -76,7 +76,7 @@ const DEFAULT_FILE_BANNER_TEMPLATE = dedent`
 `
 
 const DEFAULT_REQUEST_FUNCTION_TEMPLATE = dedent`
-  import type { RequestFunctionParams } from '@yapi-to-ts/runtime'
+  import type { RequestFunctionParams } from 'yapi-to-ts/runtime'
 
   export interface RequestOptions {
     /**
@@ -306,7 +306,14 @@ export class Generator {
             serverIndex,
           })
 
-          const projects = serverConfig.projects.reduce<ProjectConfig[]>(
+          const projectsInput = serverConfig.projects ?? []
+          if (isEmpty(projectsInput)) {
+            throwError(
+              '未配置任何项目，',
+              '请在 servers[].projects 中配置 token 等信息。',
+            )
+          }
+          const projects = projectsInput.reduce<ProjectConfig[]>(
             (projects, project) => {
               projects.push(
                 ...castArray(project.token).map(token => ({
@@ -778,10 +785,10 @@ export class Generator {
               : dedent`
                 // @ts-ignore
                 // prettier-ignore
-                import { QueryStringArrayFormat, Method, RequestBodyType, ResponseBodyType, FileData, prepare } from '@yapi-to-ts/runtime'
+                import { QueryStringArrayFormat, Method, RequestBodyType, ResponseBodyType, FileData, prepare } from 'yapi-to-ts/runtime'
                 // @ts-ignore
                 // prettier-ignore
-                import type { RequestConfig, RequestFunctionRestArgs } from '@yapi-to-ts/runtime'
+                import type { RequestConfig, RequestFunctionRestArgs } from 'yapi-to-ts/runtime'
                 // @ts-ignore
                 import request from ${JSON.stringify(
                   getNormalizedRelativePath(
