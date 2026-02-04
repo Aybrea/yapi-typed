@@ -319,6 +319,14 @@ export interface Project {
     /** 环境域名 */
     domain: string
   }>
+  /** 分类列表（由 YTT 自行实现） */
+  cats?: CategoryList
+  /** Mock 地址（由 YTT 自行实现） */
+  getMockUrl?: () => string
+  /** 开发环境地址（由 YTT 自行实现） */
+  getDevUrl?: (devEnvName: string) => string
+  /** 生产环境地址（由 YTT 自行实现） */
+  getProdUrl?: (prodEnvName: string) => string
 }
 
 /** 支持生成 React Hooks 代码的相关配置 */

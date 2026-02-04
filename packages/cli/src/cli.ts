@@ -31,6 +31,33 @@ const initCommand = defineCommand({
   },
 })
 
+async function runGenerate(ctx: any) {
+  const cwd = ctx.args.cwd ? path.resolve(ctx.args.cwd) : process.cwd()
+  const { config, configFile } = await loadConfig({
+    cwd,
+    configFile: ctx.args.config,
+  })
+
+  const generator = new Generator(config, {
+    cwd,
+    configFilePath: configFile,
+    logger: consola,
+  })
+
+  try {
+    await generator.prepare()
+    const output = await generator.generate()
+    if (ctx.args.dryRun) {
+      consola.info('Dry run enabled, skipping file writes.')
+      return
+    }
+    await generator.write(output)
+    consola.success('Generation completed.')
+  } finally {
+    await generator.destroy()
+  }
+}
+
 const generateCommand = defineCommand({
   meta: {
     name: 'generate',
@@ -53,30 +80,7 @@ const generateCommand = defineCommand({
     },
   },
   async run(ctx) {
-    const cwd = ctx.args.cwd ? path.resolve(ctx.args.cwd) : process.cwd()
-    const { config, configFile } = await loadConfig({
-      cwd,
-      configFile: ctx.args.config,
-    })
-
-    const generator = new Generator(config, {
-      cwd,
-      configFilePath: configFile,
-      logger: consola,
-    })
-
-    try {
-      await generator.prepare()
-      const output = await generator.generate()
-      if (ctx.args.dryRun) {
-        consola.info('Dry run enabled, skipping file writes.')
-        return
-      }
-      await generator.write(output)
-      consola.success('Generation completed.')
-    } finally {
-      await generator.destroy()
-    }
+    await runGenerate(ctx)
   },
 })
 
@@ -120,7 +124,7 @@ const main = defineCommand({
   },
   async run(ctx) {
     if (ctx.subCommand) return
-    await generateCommand.run(ctx)
+    await runGenerate(ctx)
   },
 })
 

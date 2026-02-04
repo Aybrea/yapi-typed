@@ -22,6 +22,7 @@ import {
   CategoryList,
   CommentConfig,
   Config,
+  ChangeCase,
   ExtendedInterface,
   Interface,
   InterfaceList,
@@ -51,6 +52,8 @@ import {
   throwError,
 } from './utils'
 import { SwaggerToYApiServer } from './swaggerToYApiServer'
+
+const changeCaseLib = changeCase as unknown as ChangeCase
 
 interface OutputFileList {
   [outputFilePath: string]: {
@@ -214,9 +217,9 @@ function ensureUniqueIdentifier(name: string, used: Set<string>): string {
 
 function getDefaultRequestFunctionName(
   interfacePath: string,
-  cc: typeof changeCase,
+  cc: ChangeCase,
 ): string {
-  const cleaned = interfacePath.split('?')[0]
+  const cleaned = (interfacePath || '').split('?')[0] ?? ''
   const parts = cleaned
     .split('/')
     .filter(Boolean)
@@ -375,9 +378,10 @@ export class Generator {
                     let categoryIds = castArray(categoryConfig.id)
                     // 全部分类
                     if (categoryIds.includes(0)) {
-                      if (!isEmpty(projectInfo.cats)) {
+                      const projectCats = projectInfo.cats ?? []
+                      if (!isEmpty(projectCats)) {
                         categoryIds.push(
-                          ...projectInfo.cats.map(cat => cat._id),
+                          ...projectCats.map(cat => cat._id),
                         )
                       } else {
                         const exportCats =
@@ -408,8 +412,8 @@ export class Generator {
                       id => !excludedCategoryIds.includes(Math.abs(id)),
                     )
                     // 删除不存在的分类
-                    categoryIds = categoryIds.filter(
-                      id => !!projectInfo.cats.find(cat => cat._id === id),
+                    categoryIds = categoryIds.filter(id =>
+                      (projectInfo.cats ?? []).some(cat => cat._id === id),
                     )
                     // 顺序化
                     categoryIds = categoryIds.sort()
@@ -442,7 +446,7 @@ export class Generator {
                           )
                           const syntheticalConfig: SyntheticalConfig = {
                             ...mergedShared,
-                            mockUrl: projectInfo.getMockUrl(),
+                            mockUrl: projectInfo.getMockUrl?.() ?? '',
                             templates:
                               mergedShared.templates ??
                               this.rootConfig.templates ??
@@ -459,12 +463,14 @@ export class Generator {
                           }
                           syntheticalConfig.target =
                             syntheticalConfig.target || 'typescript'
-                          syntheticalConfig.devUrl = projectInfo.getDevUrl(
-                            syntheticalConfig.devEnvName!,
-                          )
-                          syntheticalConfig.prodUrl = projectInfo.getProdUrl(
-                            syntheticalConfig.prodEnvName!,
-                          )
+                          syntheticalConfig.devUrl = projectInfo.getDevUrl
+                            ? projectInfo.getDevUrl(syntheticalConfig.devEnvName!)
+                            : ''
+                          syntheticalConfig.prodUrl = projectInfo.getProdUrl
+                            ? projectInfo.getProdUrl(
+                                syntheticalConfig.prodEnvName!,
+                              )
+                            : ''
                           configureSchemaCache(syntheticalConfig.cache?.schema)
                           const syntheticalContainer = new PluginContainer(
                             syntheticalConfig.plugins ?? [],
@@ -494,7 +500,7 @@ export class Generator {
                                 )
                                   ? syntheticalConfig.preproccessInterface(
                                       cloneDeepFast(interfaceInfo),
-                                      changeCase,
+                                      changeCaseLib,
                                       syntheticalConfig,
                                     )
                                   : interfaceInfo
@@ -533,7 +539,7 @@ export class Generator {
                                   'function'
                                   ? syntheticalConfig.outputFilePath(
                                       interfaceInfo,
-                                      changeCase,
+                                      changeCaseLib,
                                     )
                                   : syntheticalConfig.outputFilePath!,
                               )
@@ -574,14 +580,16 @@ export class Generator {
                           )
                           return Object.keys(groupedInterfaceCodes).map(
                             outputFilePath => {
-                              const categoryCode = [
-                                ...uniq(
-                                  sortByWeights(
-                                    groupedInterfaceCodes[outputFilePath],
-                                  ).map(item => item.categoryUID),
-                                ).map(categoryUID =>
-                                  syntheticalConfig.typesOnly
-                                    ? ''
+                                  const group =
+                                    groupedInterfaceCodes[outputFilePath] ?? []
+                                  const categoryCode = [
+                                    ...uniq(
+                                      sortByWeights(
+                                        group,
+                                      ).map(item => item.categoryUID),
+                                    ).map(categoryUID =>
+                                      syntheticalConfig.typesOnly
+                                        ? ''
                                     : dedent`
                                       const mockUrl${categoryUID} = ${JSON.stringify(
                                         syntheticalConfig.mockUrl,
@@ -597,10 +605,10 @@ export class Generator {
                                       )} as any
                                     `,
                                 ),
-                                ...sortByWeights(
-                                  groupedInterfaceCodes[outputFilePath],
-                                ).map(item => item.code),
-                              ]
+                                    ...sortByWeights(
+                                      group,
+                                    ).map(item => item.code),
+                                  ]
                                 .filter(Boolean)
                                 .join('\n\n')
                               if (!outputFileList[outputFilePath]) {
@@ -634,15 +642,15 @@ export class Generator {
                                       : '',
                                 }
                               }
-                              return {
-                                outputFilePath: outputFilePath,
-                                code: categoryCode,
-                                weights: last(
-                                  sortByWeights(
-                                    groupedInterfaceCodes[outputFilePath],
-                                  ),
-                                )!.weights,
-                              }
+                                return {
+                                  outputFilePath: outputFilePath,
+                                  code: categoryCode,
+                                  weights: last(
+                                    sortByWeights(
+                                      group,
+                                    ),
+                                  )!.weights,
+                                }
                             },
                           )
                         }),
@@ -652,10 +660,16 @@ export class Generator {
                     for (const groupedCodes of values(
                       groupBy(codes, item => item.outputFilePath),
                     )) {
+                      if (!groupedCodes.length) continue
                       sortByWeights(groupedCodes)
-                      outputFileList[groupedCodes[0].outputFilePath].content.push(
-                        ...groupedCodes.map(item => item.code),
-                      )
+                      const firstGroupedCode = groupedCodes[0]!
+                      const outputEntry =
+                        outputFileList[firstGroupedCode.outputFilePath]
+                      if (outputEntry) {
+                        outputEntry.content.push(
+                          ...groupedCodes.map(item => item.code),
+                        )
+                      }
                     }
                   },
                 ),
@@ -683,6 +697,7 @@ export class Generator {
 
     return Promise.all(
       Object.keys(outputFileList).map(async outputFilePath => {
+        const outputEntry = outputFileList[outputFilePath]!
         let {
           // eslint-disable-next-line prefer-const
           content,
@@ -690,7 +705,7 @@ export class Generator {
           requestHookMakerFilePath,
           // eslint-disable-next-line prefer-const
           syntheticalConfig,
-        } = outputFileList[outputFilePath]
+        } = outputEntry
 
         const pluginContainer = new PluginContainer(
           syntheticalConfig.plugins ?? [],
@@ -720,7 +735,7 @@ export class Generator {
           outputFilePath,
           requestFunctionFilePath,
           requestHookMakerFilePath,
-          changeCase,
+          changeCase: changeCaseLib,
           getNormalizedRelativePath,
         }
 
@@ -1023,33 +1038,33 @@ export class Generator {
     )
       ? await syntheticalConfig.getRequestFunctionName(
           extendedInterfaceInfo,
-          changeCase,
+          changeCaseLib,
         )
-      : getDefaultRequestFunctionName(extendedInterfaceInfo.path, changeCase)
+      : getDefaultRequestFunctionName(extendedInterfaceInfo.path, changeCaseLib)
     const safeRequestFunctionName = sanitizeIdentifier(requestFunctionName)
     const uniqueRequestFunctionName = nameRegistry
       ? ensureUniqueIdentifier(safeRequestFunctionName, nameRegistry)
       : safeRequestFunctionName
-    const requestConfigName = changeCase.camelCase(
+    const requestConfigName = changeCaseLib.camelCase(
       `${uniqueRequestFunctionName}RequestConfig`,
     )
-    const requestConfigTypeName = changeCase.pascalCase(requestConfigName)
+    const requestConfigTypeName = changeCaseLib.pascalCase(requestConfigName)
     const requestDataTypeName = isFunction(
       syntheticalConfig.getRequestDataTypeName,
     )
       ? await syntheticalConfig.getRequestDataTypeName(
           extendedInterfaceInfo,
-          changeCase,
+          changeCaseLib,
         )
-      : changeCase.pascalCase(`${uniqueRequestFunctionName}Request`)
+      : changeCaseLib.pascalCase(`${uniqueRequestFunctionName}Request`)
     const responseDataTypeName = isFunction(
       syntheticalConfig.getResponseDataTypeName,
     )
       ? await syntheticalConfig.getResponseDataTypeName(
           extendedInterfaceInfo,
-          changeCase,
+          changeCaseLib,
         )
-      : changeCase.pascalCase(`${uniqueRequestFunctionName}Response`)
+      : changeCaseLib.pascalCase(`${uniqueRequestFunctionName}Response`)
     const requestDataJsonSchema = getRequestDataJsonSchema(
       extendedInterfaceInfo,
       syntheticalConfig.customTypeMapping || {},
@@ -1074,9 +1089,9 @@ export class Generator {
           ? /* istanbul ignore next */
             await syntheticalConfig.reactHooks.getRequestHookName(
               extendedInterfaceInfo,
-              changeCase,
+              changeCaseLib,
             )
-          : `use${changeCase.pascalCase(uniqueRequestFunctionName)}`
+          : `use${changeCaseLib.pascalCase(uniqueRequestFunctionName)}`
         : ''
 
     // 支持路径参数
@@ -1198,7 +1213,7 @@ export class Generator {
       typeof syntheticalConfig.setRequestFunctionExtraInfo === 'function'
         ? await syntheticalConfig.setRequestFunctionExtraInfo(
             extendedInterfaceInfo,
-            changeCase,
+            changeCaseLib,
           )
         : {}
 

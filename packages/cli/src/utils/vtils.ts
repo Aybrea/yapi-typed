@@ -53,7 +53,7 @@ export function forOwn<T extends Record<string, any>>(
   iteratee: (item: T[keyof T], key: keyof T) => void,
 ): void {
   Object.keys(value).forEach(key => {
-    iteratee(value[key], key as keyof T)
+    iteratee(value[key]!, key as keyof T)
   })
 }
 
@@ -64,7 +64,7 @@ export function each<T>(
   if (Array.isArray(value)) {
     value.forEach((item, index) => iteratee(item, index))
   } else {
-    Object.keys(value).forEach(key => iteratee(value[key], key))
+    Object.keys(value).forEach(key => iteratee(value[key]!, key))
   }
 }
 
@@ -77,7 +77,7 @@ export function find<T>(
   }
   const keys = Object.keys(value)
   for (const key of keys) {
-    const item = value[key]
+    const item = value[key]!
     if (predicate(item, key)) return item
   }
   return undefined
@@ -88,8 +88,8 @@ export function mapKeys<T extends Record<string, any>>(
   iteratee: (item: T[keyof T], key: keyof T) => string,
 ): Record<string, T[keyof T]> {
   return Object.keys(value).reduce<Record<string, T[keyof T]>>((acc, key) => {
-    const newKey = iteratee(value[key], key as keyof T)
-    acc[newKey] = value[key]
+    const newKey = iteratee(value[key]!, key as keyof T)
+    acc[newKey] = value[key]!
     return acc
   }, {})
 }
@@ -166,7 +166,7 @@ export function indent(
 ): string {
   let result = ''
   for (let i = 0; i < interpolations.length; i += 1) {
-    const literal = literals[i]
+    const literal = literals[i] ?? ''
     let interpolation = interpolations[i]
     const match = literal.match(/(?:^|[\r\n]+)([^\S\r\n]*)$/)
     if (match && match[1]) {
@@ -199,7 +199,7 @@ export function dedent(
   let firstLineIndex: number | undefined
   let lastLineIndex: number | undefined
   for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index]
+    const line = lines[index] ?? ''
     const leadingWhitespace = line.match(/^\s*/)?.[0] ?? ''
     if (leadingWhitespace.length !== line.length) {
       lastLineIndex = index

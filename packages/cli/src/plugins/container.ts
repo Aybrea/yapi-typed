@@ -13,7 +13,7 @@ export class PluginContainer {
     this.plugins = this.resolvePlugins(inputs)
   }
 
-  private resolvePlugins(inputs: PluginInput[]) {
+  private resolvePlugins(inputs: PluginInput[]): Plugin[] {
     const resolved: Plugin[] = []
     for (const input of inputs) {
       if (!input) continue
@@ -31,7 +31,7 @@ export class PluginContainer {
     return resolved
   }
 
-  async hook<K extends keyof PluginHooks>(name: K, ctx: any) {
+  async hook<K extends keyof PluginHooks>(name: K, ctx: any): Promise<void> {
     for (const plugin of this.plugins) {
       const fn = plugin.hooks?.[name]
       if (fn) {

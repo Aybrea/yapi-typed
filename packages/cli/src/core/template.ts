@@ -8,7 +8,11 @@ const eta = new Eta({
   useWith: true,
 })
 
-async function resolveTemplateString(input: string, baseDir: string, templates?: TemplateConfig) {
+async function resolveTemplateString(
+  input: string,
+  baseDir: string,
+  templates?: TemplateConfig,
+): Promise<string> {
   const dir = templates?.dir ? path.resolve(baseDir, templates.dir) : baseDir
   const candidate = path.isAbsolute(input) ? input : path.resolve(dir, input)
   if (await fs.pathExists(candidate)) {
@@ -22,7 +26,7 @@ export async function renderTemplate(
   ctx: TemplateContext,
   baseDir: string,
   templates?: TemplateConfig,
-) {
+): Promise<string> {
   if (!input) return ''
   if (typeof input === 'function') {
     return await input(ctx)

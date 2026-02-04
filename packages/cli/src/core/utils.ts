@@ -51,7 +51,7 @@ export function throwError(...msg: string[]): never {
  * @param path 路径
  * @returns unix 风格的路径
  */
-export function toUnixPath(path: string) {
+export function toUnixPath(path: string): string {
   return path.replace(/[/\\]+/g, '/')
 }
 
@@ -62,7 +62,7 @@ export function toUnixPath(path: string) {
  * @param to 去向路径
  * @returns 相对路径
  */
-export function getNormalizedRelativePath(from: string, to: string) {
+export function getNormalizedRelativePath(from: string, to: string): string {
   return toUnixPath(path.relative(path.dirname(from), to))
     .replace(/^(?=[^.])/, './')
     .replace(/\.(ts|js)x?$/i, '')
@@ -179,10 +179,12 @@ export function processJsonSchema(
 
     // 移除字段名称首尾空格
     if (jsonSchema.properties) {
-      forOwn(jsonSchema.properties, (_, prop) => {
-        const propDef = jsonSchema.properties![prop]
-        delete jsonSchema.properties![prop]
-        jsonSchema.properties![(prop as string).trim()] = propDef
+      const props = jsonSchema.properties ?? {}
+      jsonSchema.properties = props
+      forOwn(props, (_, prop) => {
+        const propDef = props[prop]!
+        delete props[prop]
+        props[(prop as string).trim()] = propDef
       })
       if (Array.isArray(jsonSchema.required)) {
         jsonSchema.required = jsonSchema.required.map(prop => prop.trim())
@@ -289,7 +291,7 @@ export function jsonToJsonSchema(
     strings: {
       detectFormat: false,
     },
-    postProcessFnc: (type, schema, value) => {
+    postProcessFnc: (type: any, schema: any, value: any) => {
       if (!schema.description && !!value && type !== 'object') {
         schema.description = JSON.stringify(value)
       }
@@ -399,7 +401,10 @@ const JSTTOptions: Partial<Options> = {
 let schemaCacheEnabled = true
 let schemaTypeCache = new LRUCache<string, string>({ max: 1000 })
 
-export function configureSchemaCache(options?: { enabled?: boolean; max?: number }) {
+export function configureSchemaCache(options?: {
+  enabled?: boolean
+  max?: number
+}): void {
   if (!options) return
   if (typeof options.enabled === 'boolean') {
     schemaCacheEnabled = options.enabled
@@ -409,7 +414,7 @@ export function configureSchemaCache(options?: { enabled?: boolean; max?: number
   }
 }
 
-function createSchemaCacheKey(jsonSchema: JSONSchema4, typeName: string) {
+function createSchemaCacheKey(jsonSchema: JSONSchema4, typeName: string): string {
   const payload = JSON.stringify(jsonSchema)
   const hash = createHash('sha1').update(payload).digest('hex')
   return `${typeName}:${hash}`
@@ -589,7 +594,7 @@ export function getResponseDataJsonSchema(
 export function reachJsonSchema(
   jsonSchema: JSONSchema4,
   path: OneOrMore<string>,
-) {
+): JSONSchema4 {
   let last = jsonSchema
   for (const segment of castArray(path)) {
     const _last = last.properties?.[segment]
@@ -609,7 +614,9 @@ export function sortByWeights<T extends { weights: number[] }>(list: T[]): T[] {
     x.weights.push(...new Array(maxLen - minLen).fill(0))
     const w = a.weights.reduce((w, _, i) => {
       if (w === 0) {
-        w = a.weights[i] - b.weights[i]
+        const aw = a.weights[i] ?? 0
+        const bw = b.weights[i] ?? 0
+        w = aw - bw
       }
       return w
     }, 0)
@@ -674,7 +681,8 @@ export async function getPrettierOptions(): Promise<prettier.Options> {
   }
 }
 
-export const getCachedPrettierOptions = memoize(getPrettierOptions)
+export const getCachedPrettierOptions: () => Promise<prettier.Options> =
+  memoize(getPrettierOptions)
 
 export async function httpGet<T>(
   inputUrl: string,
