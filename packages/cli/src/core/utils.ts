@@ -169,7 +169,7 @@ export function processJsonSchema(
       const isMultiple = Array.isArray(jsonSchema.type)
       const types = castArray(jsonSchema.type).map(type => {
         // 所有类型转成小写，如：String -> string
-        type = type.toLowerCase() as any
+        type = type.toLowerCase() as JSONSchema4TypeName
         // 映射为标准的 JSONSchema 类型
         type = typeMapping[type] || type
         return type
@@ -291,7 +291,7 @@ export function jsonToJsonSchema(
     strings: {
       detectFormat: false,
     },
-    postProcessFnc: (type: any, schema: any, value: any) => {
+    postProcessFnc: (type: string, schema: JSONSchema4, value: unknown) => {
       if (!schema.description && !!value && type !== 'object') {
         schema.description = JSON.stringify(value)
       }
@@ -299,7 +299,7 @@ export function jsonToJsonSchema(
     },
   })
   delete schema.description
-  return processJsonSchema(schema as any, customTypeMapping)
+  return processJsonSchema(schema as JSONSchema4, customTypeMapping)
 }
 
 /**
@@ -686,19 +686,17 @@ export const getCachedPrettierOptions: () => Promise<prettier.Options> =
 
 export async function httpGet<T>(
   inputUrl: string,
-  query?: Record<string, any>,
+  query?: Record<string, unknown>,
 ): Promise<T> {
   const _url = new URL(inputUrl)
   if (query) {
-    Object.keys(query).forEach(key => {
-      _url.searchParams.set(key, query[key])
-    })
+    for (const key of Object.keys(query)) {
+      _url.searchParams.set(key, String(query[key]))
+    }
   }
-  const url = _url.toString()
-
-  const res = await fetch(url, {
-    method: 'GET',
-  } as any)
-
-  return res.json()
+  const res = await fetch(_url.toString())
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} ${res.statusText}: ${_url.toString()}`)
+  }
+  return res.json() as Promise<T>
 }

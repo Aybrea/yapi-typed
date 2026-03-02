@@ -29,6 +29,8 @@ import {
   Method,
   Project,
   ProjectConfig,
+  PluginInput,
+  PluginLogger,
   QueryStringArrayFormat,
   RequestBodyType,
   RootConfig,
@@ -241,7 +243,7 @@ export class Generator {
     private options: {
       cwd: string
       configFilePath?: string
-      logger?: { info: (...args: any[]) => void; warn: (...args: any[]) => void; error: (...args: any[]) => void }
+      logger?: PluginLogger
     } = { cwd: process.cwd() },
   ) {
     this.rootConfig = normalizeConfig(config)
@@ -254,7 +256,7 @@ export class Generator {
       : this.options.cwd
   }
 
-  private collectPlugins(...configs: Array<{ plugins?: any[] } | undefined>) {
+  private collectPlugins(...configs: Array<{ plugins?: PluginInput[] } | undefined>) {
     return configs.flatMap(item => item?.plugins ?? [])
   }
 
@@ -885,21 +887,17 @@ export class Generator {
   }
 
   async tsc(file: string): Promise<void> {
-    return new Promise<void>(resolve => {
-      // add this to fix bug that not-generator-file-on-window
+    return new Promise<void>((resolve, reject) => {
       const command = `${
         os.platform() === 'win32' ? 'node ' : ''
       }${JSON.stringify(require.resolve(`typescript/bin/tsc`))}`
-
       exec(
-        `${command} --target ES2019 --module ESNext --jsx preserve --declaration --esModuleInterop ${JSON.stringify(
-          file,
-        )}`,
-        {
-          cwd: this.options.cwd,
-          env: process.env,
+        `${command} --target ES2019 --module ESNext --jsx preserve --declaration --esModuleInterop ${JSON.stringify(file)}`,
+        { cwd: this.options.cwd, env: process.env },
+        (error) => {
+          if (error) reject(error)
+          else resolve()
         },
-        () => resolve(),
       )
     })
   }

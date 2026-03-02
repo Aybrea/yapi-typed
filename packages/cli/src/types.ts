@@ -772,17 +772,94 @@ export interface CacheConfig {
   }
 }
 
+export interface PluginLogger {
+  info: (...args: unknown[]) => void
+  warn: (...args: unknown[]) => void
+  error: (...args: unknown[]) => void
+}
+
+export interface PluginFactoryContext {
+  config: RootConfig | ServerConfig | SyntheticalConfig
+  cwd: string
+  logger: PluginLogger
+}
+
+export interface PluginOnStartContext {
+  config: RootConfig
+  cwd: string
+}
+
+export interface PluginOnServerContext {
+  serverConfig: ServerConfig
+  serverIndex: number
+}
+
+export interface PluginOnProjectContext {
+  serverConfig: ServerConfig
+  projectConfig: ProjectConfig
+  projectIndex: number
+}
+
+export interface PluginOnCategoryContext {
+  serverConfig: ServerConfig
+  projectConfig: ProjectConfig
+  categoryConfig: CategoryConfig
+  categoryIndex: number
+}
+
+export interface PluginOnInterfaceContext {
+  serverConfig: ServerConfig
+  projectConfig: ProjectConfig
+  categoryConfig: CategoryConfig
+  interfaceInfo: Interface | false
+  syntheticalConfig: SyntheticalConfig
+}
+
+export interface PluginOnGenerateFileContext {
+  outputFilePath: string
+  content: string[]
+  syntheticalConfig: SyntheticalConfig
+}
+
+export interface PluginOnWriteContext {
+  outputFilePath: string
+  content: string
+  syntheticalConfig: SyntheticalConfig
+}
+
+export interface PluginOnCompleteContext {
+  config: RootConfig
+  outputFileList: Record<string, unknown>
+}
+
+export interface PluginOnErrorContext {
+  error: unknown
+}
+
+export type HookContextMap = {
+  onStart: PluginOnStartContext
+  onServer: PluginOnServerContext
+  onProject: PluginOnProjectContext
+  onCategory: PluginOnCategoryContext
+  onInterface: PluginOnInterfaceContext
+  onGenerateFile: PluginOnGenerateFileContext
+  onBeforeWrite: PluginOnWriteContext
+  onAfterWrite: PluginOnWriteContext
+  onComplete: PluginOnCompleteContext
+  onError: PluginOnErrorContext
+}
+
 export interface PluginHooks {
-  onStart?: (ctx: any) => AsyncOrSync<void>
-  onServer?: (ctx: any) => AsyncOrSync<void>
-  onProject?: (ctx: any) => AsyncOrSync<void>
-  onCategory?: (ctx: any) => AsyncOrSync<void>
-  onInterface?: (ctx: any) => AsyncOrSync<void>
-  onGenerateFile?: (ctx: any) => AsyncOrSync<void>
-  onBeforeWrite?: (ctx: any) => AsyncOrSync<void>
-  onAfterWrite?: (ctx: any) => AsyncOrSync<void>
-  onComplete?: (ctx: any) => AsyncOrSync<void>
-  onError?: (ctx: any) => AsyncOrSync<void>
+  onStart?: (ctx: PluginOnStartContext) => AsyncOrSync<void>
+  onServer?: (ctx: PluginOnServerContext) => AsyncOrSync<void>
+  onProject?: (ctx: PluginOnProjectContext) => AsyncOrSync<void>
+  onCategory?: (ctx: PluginOnCategoryContext) => AsyncOrSync<void>
+  onInterface?: (ctx: PluginOnInterfaceContext) => AsyncOrSync<void>
+  onGenerateFile?: (ctx: PluginOnGenerateFileContext) => AsyncOrSync<void>
+  onBeforeWrite?: (ctx: PluginOnWriteContext) => AsyncOrSync<void>
+  onAfterWrite?: (ctx: PluginOnWriteContext) => AsyncOrSync<void>
+  onComplete?: (ctx: PluginOnCompleteContext) => AsyncOrSync<void>
+  onError?: (ctx: PluginOnErrorContext) => AsyncOrSync<void>
 }
 
 export interface Plugin {
@@ -790,7 +867,7 @@ export interface Plugin {
   hooks?: PluginHooks
 }
 
-export type PluginInput = Plugin | ((ctx: any) => Plugin | PluginHooks | void)
+export type PluginInput = Plugin | ((ctx: PluginFactoryContext) => Plugin | PluginHooks | void)
 
 export interface RootConfig {
   servers: ServerConfig[]

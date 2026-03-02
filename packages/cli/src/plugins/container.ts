@@ -1,15 +1,11 @@
-import type { Plugin, PluginHooks, PluginInput } from '../types'
+import type { Plugin, PluginHooks, PluginInput, PluginFactoryContext, HookContextMap } from '../types'
 
-export interface PluginRuntimeContext {
-  config: any
-  cwd: string
-  logger: { info: (...args: any[]) => void; warn: (...args: any[]) => void; error: (...args: any[]) => void }
-}
+export type { PluginFactoryContext as PluginRuntimeContext }
 
 export class PluginContainer {
   private plugins: Plugin[]
 
-  constructor(inputs: PluginInput[] = [], private readonly runtime: PluginRuntimeContext) {
+  constructor(inputs: PluginInput[] = [], private readonly runtime: PluginFactoryContext) {
     this.plugins = this.resolvePlugins(inputs)
   }
 
@@ -31,9 +27,9 @@ export class PluginContainer {
     return resolved
   }
 
-  async hook<K extends keyof PluginHooks>(name: K, ctx: any): Promise<void> {
+  async hook<K extends keyof PluginHooks>(name: K, ctx: HookContextMap[K]): Promise<void> {
     for (const plugin of this.plugins) {
-      const fn = plugin.hooks?.[name]
+      const fn = plugin.hooks?.[name] as ((ctx: HookContextMap[K]) => Promise<void> | void) | undefined
       if (fn) {
         await fn(ctx)
       }

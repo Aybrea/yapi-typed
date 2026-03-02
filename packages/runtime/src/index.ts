@@ -96,7 +96,7 @@ export interface RequestConfig<
  */
 export interface RequestFunctionParams extends RequestConfig {
   /** 原始数据 */
-  rawData: Record<string, any>
+  rawData: unknown
   /** 请求数据，不含文件数据 */
   data: Record<string, any>
   /** 是否有文件数据 */
@@ -137,25 +137,26 @@ export class FileData<T = any> {
   }
 }
 
-export function parseRequestData(requestData?: any): {
-  data: any
-  fileData: any
+export function parseRequestData(requestData?: unknown): {
+  data: Record<string, unknown>
+  fileData: Record<string, unknown>
 } {
   const result = {
-    data: {} as any,
-    fileData: {} as any,
+    data: {} as Record<string, unknown>,
+    fileData: {} as Record<string, unknown>,
   }
   if (requestData != null) {
     if (typeof requestData === 'object' && !Array.isArray(requestData)) {
-      Object.keys(requestData).forEach((key) => {
-        if (requestData[key] && requestData[key] instanceof FileData) {
-          result.fileData[key] = (requestData[key] as FileData).getOriginalFileData()
+      const obj = requestData as Record<string, unknown>
+      Object.keys(obj).forEach((key) => {
+        if (obj[key] instanceof FileData) {
+          result.fileData[key] = (obj[key] as FileData).getOriginalFileData()
         } else {
-          result.data[key] = requestData[key]
+          result.data[key] = obj[key]
         }
       })
     } else {
-      result.data = requestData
+      result.data = requestData as Record<string, unknown>
     }
   }
   return result
@@ -194,7 +195,7 @@ const queryStringify = (
 
 export function prepare(
   requestConfig: RequestConfig,
-  requestData: any,
+  requestData: unknown,
 ): RequestFunctionParams {
   let requestPath: string = requestConfig.path
   const { data, fileData } = parseRequestData(requestData)
@@ -204,8 +205,8 @@ export function prepare(
       Object.keys(data).forEach((key) => {
         if (requestConfig.paramNames.indexOf(key) >= 0) {
           requestPath = requestPath
-            .replace(new RegExp(`\\{${key}\\}`, 'g'), data[key])
-            .replace(new RegExp(`/:${key}(?=/|$)`, 'g'), `/${data[key]}`)
+            .replace(new RegExp(`\\{${key}\\}`, 'g'), String(data[key]))
+            .replace(new RegExp(`/:${key}(?=/|$)`, 'g'), `/${String(data[key])}`)
           delete data[key]
         }
       })
@@ -243,13 +244,14 @@ export function prepare(
     }
     const formData = new FormData()
     Object.keys(data).forEach((key) => {
-      formData.append(key, data[key])
+      formData.append(key, data[key] as string)
     })
+    const rawObj = requestData as Record<string, unknown>
     Object.keys(fileData).forEach((key) => {
-      const options = (requestData[key] as FileData).getOptions()
+      const options = (rawObj[key] as FileData).getOptions()
       const files = Array.isArray(fileData[key]) ? fileData[key] : [fileData[key]]
       files.forEach((file: Blob) => {
-        formData.append(key, file, options?.filename as any)
+        formData.append(key, file, options?.filename != null ? String(options.filename) : undefined)
       })
     })
     return formData as any
