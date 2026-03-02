@@ -1,5 +1,5 @@
 {
-  "name": "yapi-to-ts-workspace",
+  "name": "yapi-typed-workspace",
   "private": true,
   "packageManager": "pnpm@10.17.0",
   "workspaces": [
@@ -8,6 +8,7 @@
   "scripts": {
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "release:version": "node -e \"const fs=require('fs');const path=require('path');const argv=process.argv;const idx=argv.indexOf('--ver');const ver=idx>-1?argv[idx+1]:''; if(!ver){console.error('Missing --ver'); process.exit(1);} const files=[['packages/runtime/package.json', (p)=>{p.version=ver;}], ['packages/cli/package.json',(p)=>{p.version=ver; p.dependencies=p.dependencies||{}; p.dependencies['@yapi-typed/runtime']='^'+ver;}]]; for(const [file,mut] of files){const abs=path.resolve(file); const json=JSON.parse(fs.readFileSync(abs,'utf8')); mut(json); fs.writeFileSync(abs, JSON.stringify(json,null,2)+'\\n');}\" --"
   }
 }

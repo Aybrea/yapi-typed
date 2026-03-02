@@ -9,7 +9,7 @@ import { Generator } from './core/generator'
 const initCommand = defineCommand({
   meta: {
     name: 'init',
-    description: 'Create a starter yapi-to-ts config file',
+    description: 'Create a starter yapi-typed config file',
   },
   args: {
     cwd: {
@@ -19,12 +19,12 @@ const initCommand = defineCommand({
   },
   async run(ctx) {
     const cwd = ctx.args.cwd ? path.resolve(ctx.args.cwd) : process.cwd()
-    const target = path.join(cwd, 'yapi-to-ts.config.ts')
+    const target = path.join(cwd, 'yapi.config.ts')
     if (await fs.pathExists(target)) {
       consola.warn(`Config already exists at ${target}`)
       process.exit(0)
     }
-    const content = `import { defineConfig } from 'yapi-to-ts'\n\nexport default defineConfig({\n  servers: [\n    {\n      serverUrl: 'https://yapi.example.com',\n      projects: [\n        {\n          token: 'YOUR_PROJECT_TOKEN',\n          categories: [\n            {\n              id: 0,\n              outputFilePath: 'src/api/index.ts',\n            },\n          ],\n        },\n      ],\n    },\n  ],\n})\n`
+    const content = `import { defineConfig } from 'yapi-typed'\n\nexport default defineConfig({\n  servers: [\n    {\n      serverUrl: 'https://yapi.example.com',\n      projects: [\n        {\n          token: 'YOUR_PROJECT_TOKEN',\n          categories: [\n            {\n              id: 0,\n              outputFilePath: 'src/api/index.ts',\n            },\n          ],\n        },\n      ],\n    },\n  ],\n})\n`
     await fs.outputFile(target, content)
     consola.success(`Created ${target}`)
     process.exit(0)
@@ -114,17 +114,13 @@ const configCommand = defineCommand({
 
 const main = defineCommand({
   meta: {
-    name: 'yapi-to-ts',
+    name: 'yapi-typed',
     description: 'Modern YApi to TypeScript generator',
   },
   subCommands: {
     init: initCommand,
     generate: generateCommand,
     config: configCommand,
-  },
-  async run(ctx) {
-    if (ctx.subCommand) return
-    await runGenerate(ctx)
   },
 })
 

@@ -30,13 +30,13 @@ export function mergeSharedConfig(...configs: Array<SharedConfig | undefined>): 
 export async function loadConfig(options: LoadConfigOptions = {}): Promise<ResolvedConfig> {
   const cwd = options.cwd || process.cwd()
   const { config, configFile } = await loadC12Config<Config>({
-    name: 'yapi-to-ts',
+    name: 'yapi',
     cwd,
     configFile: options.configFile ? path.resolve(cwd, options.configFile) : undefined,
   })
 
   if (!config) {
-    throw new Error('No config found. Create `yapi-to-ts.config.ts` or pass --config <path>.')
+    throw new Error('No config found. Create `yapi.config.ts` or pass --config <path>.')
   }
 
   return {

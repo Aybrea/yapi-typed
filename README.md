@@ -1,4 +1,4 @@
-# yapi-to-ts
+# yapi-typed
 
 Modern, plugin-ready YApi → TypeScript generator.
 
@@ -15,35 +15,33 @@ Requires Node.js >= 20.
 
 ## Quick Start
 
-1. Install dependencies (from this repo root):
+1. Install the CLI:
 
 ```bash
-pnpm install
+pnpm add -D yapi-typed
 ```
 
-2. Create config (CLI package):
+2. Create config:
 
 ```bash
-pnpm --filter yapi-to-ts exec yapi-to-ts init
+npx yapi-typed init
 ```
 
 3. Generate:
 
 ```bash
-pnpm --filter yapi-to-ts exec yapi-to-ts generate
+npx yapi-typed generate
 ```
-
-Note: Generated clients depend on `yapi-to-ts/runtime` (install `yapi-to-ts` as a runtime dependency).
 
 ## Monorepo
 
-- CLI package: `packages/cli` (name: `yapi-to-ts`)
-- Runtime package: `packages/runtime` (name: `@yapi-to-ts/runtime`)
+- CLI package: `packages/cli` (name: `yapi-typed`)
+- Runtime package: `packages/runtime` (name: `@yapi-typed/runtime`)
 
 ## Config Example
 
 ```ts
-import { defineConfig } from 'yapi-to-ts'
+import { defineConfig } from 'yapi-typed'
 
 export default defineConfig({
   servers: [
@@ -68,7 +66,7 @@ export default defineConfig({
 ## Plugins
 
 ```ts
-import { defineConfig, definePlugin } from 'yapi-to-ts'
+import { defineConfig, definePlugin } from 'yapi-typed'
 
 export default defineConfig({
   plugins: [
@@ -91,7 +89,7 @@ export default defineConfig({
 ## Templates
 
 ```ts
-import { defineConfig } from 'yapi-to-ts'
+import { defineConfig } from 'yapi-typed'
 
 export default defineConfig({
   templates: {

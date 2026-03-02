@@ -1,7 +1,7 @@
 {
-  "name": "@yapi-to-ts/runtime",
-  "version": "0.1.0",
-  "description": "Browser-safe runtime for yapi-to-ts generated clients",
+  "name": "@yapi-typed/runtime",
+  "version": "0.1.1",
+  "description": "Browser-safe runtime for yapi-typed generated clients",
   "type": "module",
   "files": [
     "dist"
