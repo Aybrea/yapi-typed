@@ -81,7 +81,7 @@ const DEFAULT_FILE_BANNER_TEMPLATE = dedent`
 `
 
 const DEFAULT_REQUEST_FUNCTION_TEMPLATE = dedent`
-  import type { RequestFunctionParams } from '@yapi-typed/runtime'
+  import type { RequestFunctionParams } from 'yapi-typed-runtime'
 
   export interface RequestOptions {
     /**
@@ -120,7 +120,7 @@ const DEFAULT_REQUEST_FUNCTION_TEMPLATE = dedent`
 
 const DEFAULT_REQUEST_HOOK_TEMPLATE = dedent`
   import { useState, useEffect } from 'react'
-  import type { RequestConfig } from '@yapi-typed/runtime'
+  import type { RequestConfig } from 'yapi-typed-runtime'
   import type { Request } from <%- JSON.stringify(getNormalizedRelativePath(requestHookMakerFilePath, outputFilePath)) %>
   import baseRequest from <%- JSON.stringify(getNormalizedRelativePath(requestHookMakerFilePath, requestFunctionFilePath)) %>
 
@@ -802,10 +802,10 @@ export class Generator {
               : dedent`
                 // @ts-ignore
                 // prettier-ignore
-                import { QueryStringArrayFormat, Method, RequestBodyType, ResponseBodyType, FileData, prepare } from '@yapi-typed/runtime'
+                import { QueryStringArrayFormat, Method, RequestBodyType, ResponseBodyType, FileData, prepare } from 'yapi-typed-runtime'
                 // @ts-ignore
                 // prettier-ignore
-                import type { RequestConfig, RequestFunctionRestArgs } from '@yapi-typed/runtime'
+                import type { RequestConfig, RequestFunctionRestArgs } from 'yapi-typed-runtime'
                 // @ts-ignore
                 import request from ${JSON.stringify(
                   getNormalizedRelativePath(

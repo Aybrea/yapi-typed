@@ -36,7 +36,7 @@ npx yapi-typed generate
 ## Monorepo
 
 - CLI package: `packages/cli` (name: `yapi-typed`)
-- Runtime package: `packages/runtime` (name: `@yapi-typed/runtime`)
+- Runtime package: `packages/runtime` (name: `yapi-typed-runtime`)
 
 ## Config Example
 
