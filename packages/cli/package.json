@@ -1,6 +1,6 @@
 {
   "name": "yapi-typed",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Modern YApi to TypeScript generator with plugins and templates",
   "type": "module",
   "bin": {
@@ -39,7 +39,7 @@
     "signal-exit": "^4.1.0",
     "swagger-client": "^3.27.8",
     "to-json-schema": "^0.2.5",
-    "yapi-typed-runtime": "^0.1.1"
+    "yapi-typed-runtime": "^0.1.2"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
