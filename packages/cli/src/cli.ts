@@ -5,6 +5,7 @@ import fs from 'fs-extra'
 import path from 'path'
 import { loadConfig } from './config'
 import { Generator } from './core/generator'
+import { ensureRuntime } from './utils/ensure-runtime'
 
 const initCommand = defineCommand({
   meta: {
@@ -33,6 +34,9 @@ const initCommand = defineCommand({
 
 async function runGenerate(ctx: any) {
   const cwd = ctx.args.cwd ? path.resolve(ctx.args.cwd) : process.cwd()
+
+  await ensureRuntime(cwd, consola)
+
   const { config, configFile } = await loadConfig({
     cwd,
     configFile: ctx.args.config,
