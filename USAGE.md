@@ -2,21 +2,27 @@
 
 ## 安装
 
+**推荐：安装到项目（可锁定版本）**
+
 ```bash
 # 使用 npm
 npm install -D yapi-typed
-npm install yapi-typed-runtime
 
 # 使用 pnpm
 pnpm add -D yapi-typed
-pnpm add yapi-typed-runtime
 
 # 使用 yarn
 yarn add -D yapi-typed
-yarn add yapi-typed-runtime
 ```
 
-> **注意**：`yapi-typed` 是开发依赖（devDependencies），`yapi-typed-runtime` 是运行时依赖（dependencies），因为生成的代码需要在运行时使用它。
+**或者：直接使用 npx（无需安装）**
+
+```bash
+npx yapi-typed init
+npx yapi-typed generate
+```
+
+> **注意**：`yapi-typed-runtime` 会在首次运行 `generate` 命令时自动安装，无需手动安装。
 
 ## 快速开始
 
@@ -83,6 +89,60 @@ console.log(response.data.name)
 
 ## 高级配置
 
+### 只生成类型（不生成请求函数）
+
+如果只需要类型定义，不需要请求函数：
+
+```ts
+export default defineConfig({
+  servers: [
+    {
+      serverUrl: 'https://yapi.example.com',
+      projects: [
+        {
+          token: 'YOUR_PROJECT_TOKEN',
+          categories: [
+            {
+              id: 0,
+              typesOnly: true, // 只生成类型
+              outputFilePath: 'src/api/types.ts',
+            },
+          ],
+        },
+      ],
+    },
+  ],
+})
+```
+
+### 完整配置示例
+
+```ts
+export default defineConfig({
+  servers: [
+    {
+      serverUrl: 'https://yapi.example.com',
+      projects: [
+        {
+          token: 'YOUR_PROJECT_TOKEN',
+          categories: [
+            {
+              id: 0,
+              outputFilePath: 'src/api/index.ts',
+              requestFunctionFilePath: 'src/api/request.ts',
+              dataKey: 'data',
+              getRequestFunctionName(interfaceInfo, changeCase) {
+                return changeCase.camelCase(interfaceInfo.path)
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ],
+})
+```
+
 ### 自定义请求函数
 
 你可以自定义请求函数的实现：
@@ -122,10 +182,21 @@ export default defineConfig({
 
 ## 运行时依赖
 
-生成的代码依赖 `yapi-typed-runtime` 包，它会在生成代码时自动安装。如果需要手动安装：
+生成的代码依赖 `yapi-typed-runtime` 包，它会在首次运行 `generate` 时自动安装。
+
+### runtime 提供的功能
+
+- **类型定义**：`RequestConfig`、`RequestFunctionParams` 等
+- **枚举类型**：`Method`、`RequestBodyType`、`ResponseBodyType` 等
+- **核心函数**：`prepare()` - 处理请求数据（路径参数替换、查询参数提取、文件数据分离）
+- **文件上传**：`FileData` 类 - 包装文件数据
+
+### 手动安装
+
+虽然会自动安装，但建议手动添加到 package.json 以锁定版本：
 
 ```bash
-npm install yapi-typed-runtime
+pnpm add yapi-typed-runtime
 ```
 
 ## 常见问题
