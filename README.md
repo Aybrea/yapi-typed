@@ -101,6 +101,43 @@ export default defineConfig({
 })
 ```
 
+## Split By Category
+
+```ts
+import { defineConfig } from 'yapi-typed'
+
+export default defineConfig({
+  servers: [
+    {
+      serverUrl: 'https://yapi.example.com',
+      projects: [
+        {
+          token: 'YOUR_PROJECT_TOKEN',
+          categories: [
+            {
+              id: 0,
+              outputFilePath: 'src/api/index.ts',
+              categoryFile: {
+                enabled: true,
+                // Without translation, the original category name is used.
+                nameMap: {
+                  用户管理: 'user',
+                  订单接口: 'order',
+                },
+                // Optional self-hosted LibreTranslate support.
+                // libreTranslate: { endpoint: 'http://localhost:5000' },
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ],
+})
+```
+
+With `categoryFile.enabled`, the configured `outputFilePath` becomes the barrel file and each category is written to a sibling file.
+
 ## Build
 
 ```bash

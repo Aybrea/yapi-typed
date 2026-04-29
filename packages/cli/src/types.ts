@@ -1,4 +1,9 @@
-import { AsyncOrSync, LiteralUnion, OmitStrict, OneOrMore } from './utils/vtils-types'
+import {
+  AsyncOrSync,
+  LiteralUnion,
+  OmitStrict,
+  OneOrMore,
+} from './utils/vtils-types'
 import type { Options as PrettierOptions } from 'prettier'
 import { JSONSchema4, JSONSchema4TypeName } from 'json-schema'
 import { ParsedPath } from 'path'
@@ -380,6 +385,98 @@ export interface JsonSchemaConfig {
   responseData?: boolean
 }
 
+export interface CategoryFileNameContext {
+  category: OmitStrict<Category, 'list'>
+  project: Project
+  changeCase: ChangeCase
+}
+
+export interface LibreTranslateConfig {
+  /**
+   * LibreTranslate 服务地址。
+   *
+   * @example 'http://localhost:5000'
+   * @example 'https://libretranslate.com'
+   */
+  endpoint: string
+
+  /**
+   * API Key。自托管服务通常不需要。
+   */
+  apiKey?: string
+
+  /**
+   * 源语言。
+   *
+   * @default 'zh'
+   */
+  source?: string
+
+  /**
+   * 目标语言。
+   *
+   * @default 'en'
+   */
+  target?: string
+}
+
+export interface CategoryFileConfig {
+  /**
+   * 是否按分类拆分接口文件。
+   *
+   * 开启后，`outputFilePath` 会作为统一导出入口文件；
+   * 每个分类会生成到入口文件同级目录下的独立文件。
+   *
+   * @default false
+   */
+  enabled?: boolean
+
+  /**
+   * 分类名称到文件名的映射表。优先级高于翻译。
+   *
+   * @example { 用户管理: 'user', 订单接口: 'order' }
+   */
+  nameMap?: Record<string, string>
+
+  /**
+   * 自定义分类文件名。优先级最高。
+   */
+  getFileName?(
+    categoryName: string,
+    context: CategoryFileNameContext,
+  ): AsyncOrSync<string>
+
+  /**
+   * 自定义翻译函数，用于将中文分类名翻译为英文文件名。
+   */
+  translate?(
+    categoryName: string,
+    context: CategoryFileNameContext,
+  ): AsyncOrSync<string>
+
+  /**
+   * LibreTranslate 配置。适合自托管或兼容 LibreTranslate API 的服务。
+   */
+  libreTranslate?: LibreTranslateConfig
+
+  /**
+   * 输出文件名的大小写格式。
+   *
+   * @default 'paramCase'
+   */
+  fileNameCase?: keyof Pick<
+    ChangeCase,
+    'camelCase' | 'constantCase' | 'paramCase' | 'pascalCase' | 'snakeCase'
+  >
+
+  /**
+   * 文件扩展名。
+   *
+   * @default 自动沿用 `outputFilePath` 的扩展名，无法识别时使用 '.ts'
+   */
+  extension?: string
+}
+
 /** 支持生成注释的相关配置 */
 export interface CommentConfig {
   /**
@@ -533,6 +630,11 @@ export interface SharedConfig {
    * @example 'src/api/request.ts'
    */
   requestFunctionFilePath?: string
+
+  /**
+   * 按分类拆分接口文件，并在 `outputFilePath` 生成统一导出。
+   */
+  categoryFile?: CategoryFileConfig
 
   /**
    * 如果接口响应的结果是 `JSON` 对象，
@@ -867,7 +969,9 @@ export interface Plugin {
   hooks?: PluginHooks
 }
 
-export type PluginInput = Plugin | ((ctx: PluginFactoryContext) => Plugin | PluginHooks | void)
+export type PluginInput =
+  | Plugin
+  | ((ctx: PluginFactoryContext) => Plugin | PluginHooks | void)
 
 export interface RootConfig {
   servers: ServerConfig[]

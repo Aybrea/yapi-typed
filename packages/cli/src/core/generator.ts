@@ -20,6 +20,7 @@ import {
 } from '../utils/vtils'
 import {
   CategoryList,
+  CategoryFileConfig,
   CommentConfig,
   Config,
   ChangeCase,
@@ -63,6 +64,8 @@ interface OutputFileList {
     content: string[]
     requestFunctionFilePath: string
     requestHookMakerFilePath: string
+    exportFilePaths?: Set<string>
+    isExportIndex?: boolean
   }
 }
 
@@ -225,9 +228,35 @@ function getDefaultRequestFunctionName(
   const parts = cleaned
     .split('/')
     .filter(Boolean)
-    .map((part) => part.replace(/^\{(.+)\}$/, '$1').replace(/^:(.+)$/, '$1'))
+    .map(part => part.replace(/^\{(.+)\}$/, '$1').replace(/^:(.+)$/, '$1'))
   if (parts.length === 0) return 'request'
   return cc.camelCase(parts.join('-'))
+}
+
+function getFileExtension(filePath: string, fallback = '.ts'): string {
+  const ext = path.extname(filePath)
+  return ext || fallback
+}
+
+function normalizeCategoryFileName(name: string): string {
+  return String(name || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}_-]+/gu, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+}
+
+function applyCategoryFileNameCase(
+  name: string,
+  categoryFileConfig: CategoryFileConfig,
+): string {
+  const fileNameCase = categoryFileConfig.fileNameCase ?? 'paramCase'
+  const caseConverter = changeCaseLib[fileNameCase]
+  const safeName = normalizeCategoryFileName(name)
+  return normalizeCategoryFileName(
+    caseConverter ? caseConverter(safeName) : safeName,
+  )
 }
 
 export class Generator {
@@ -237,6 +266,10 @@ export class Generator {
   private rootConfig: RootConfig
 
   private disposes: Array<() => any> = []
+
+  private categoryFileNameCache = new Map<string, Promise<string>>()
+
+  private categoryOutputFilePathOwners = new Map<string, number>()
 
   constructor(
     config: Config,
@@ -256,8 +289,149 @@ export class Generator {
       : this.options.cwd
   }
 
-  private collectPlugins(...configs: Array<{ plugins?: PluginInput[] } | undefined>) {
+  private collectPlugins(
+    ...configs: Array<{ plugins?: PluginInput[] } | undefined>
+  ) {
     return configs.flatMap(item => item?.plugins ?? [])
+  }
+
+  private async translateCategoryNameByLibreTranslate(
+    categoryName: string,
+    categoryFileConfig: CategoryFileConfig,
+  ): Promise<string> {
+    const libreTranslate = categoryFileConfig.libreTranslate
+    if (!libreTranslate?.endpoint) return ''
+
+    const endpoint = libreTranslate.endpoint.replace(/\/+$/, '')
+    const response = await fetch(`${endpoint}/translate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        q: categoryName,
+        source: libreTranslate.source ?? 'zh',
+        target: libreTranslate.target ?? 'en',
+        format: 'text',
+        ...(libreTranslate.apiKey ? { api_key: libreTranslate.apiKey } : {}),
+      }),
+    })
+    if (!response.ok) {
+      throw new Error(
+        `LibreTranslate request failed: ${response.status} ${response.statusText}`,
+      )
+    }
+    const result = (await response.json()) as { translatedText?: string }
+    return result.translatedText ?? ''
+  }
+
+  private async getCategoryFileName(
+    syntheticalConfig: SyntheticalConfig,
+    interfaceInfo: Interface,
+  ): Promise<string> {
+    const categoryFileConfig = syntheticalConfig.categoryFile
+    const categoryName =
+      interfaceInfo._category?.name ?? String(interfaceInfo.catid)
+    if (!categoryFileConfig?.enabled) {
+      return ''
+    }
+
+    const cacheKey = JSON.stringify({
+      categoryId: interfaceInfo._category?._id ?? interfaceInfo.catid,
+      categoryName,
+      hasGetter: Boolean(categoryFileConfig.getFileName),
+      hasTranslator: Boolean(categoryFileConfig.translate),
+      nameMapValue: categoryFileConfig.nameMap?.[categoryName],
+      libreTranslate: categoryFileConfig.libreTranslate,
+      fileNameCase: categoryFileConfig.fileNameCase,
+    })
+    let cachedFileName = this.categoryFileNameCache.get(cacheKey)
+    if (!cachedFileName) {
+      cachedFileName = (async () => {
+        const context = {
+          category: interfaceInfo._category,
+          project: interfaceInfo._project,
+          changeCase: changeCaseLib,
+        }
+        const rawFileName =
+          (categoryFileConfig.getFileName
+            ? await categoryFileConfig.getFileName(categoryName, context)
+            : '') ||
+          categoryFileConfig.nameMap?.[categoryName] ||
+          (categoryFileConfig.translate
+            ? await categoryFileConfig.translate(categoryName, context)
+            : '') ||
+          (await this.translateCategoryNameByLibreTranslate(
+            categoryName,
+            categoryFileConfig,
+          )) ||
+          categoryName ||
+          String(interfaceInfo.catid)
+        return (
+          applyCategoryFileNameCase(rawFileName, categoryFileConfig) ||
+          `category-${interfaceInfo.catid}`
+        )
+      })()
+      this.categoryFileNameCache.set(cacheKey, cachedFileName)
+    }
+    return cachedFileName
+  }
+
+  private async resolveOutputFilePath(
+    syntheticalConfig: SyntheticalConfig,
+    interfaceInfo: Interface,
+  ): Promise<{
+    outputFilePath: string
+    exportIndexFilePath?: string
+  }> {
+    const rawOutputFilePath =
+      typeof syntheticalConfig.outputFilePath === 'function'
+        ? syntheticalConfig.outputFilePath(interfaceInfo, changeCaseLib)
+        : syntheticalConfig.outputFilePath!
+    const exportIndexFilePath = path.resolve(
+      this.options.cwd,
+      rawOutputFilePath,
+    )
+    const categoryFileConfig = syntheticalConfig.categoryFile
+    if (!categoryFileConfig?.enabled) {
+      return {
+        outputFilePath: exportIndexFilePath,
+      }
+    }
+
+    const extension =
+      categoryFileConfig.extension ?? getFileExtension(exportIndexFilePath)
+    const fileName = await this.getCategoryFileName(
+      syntheticalConfig,
+      interfaceInfo,
+    )
+    let categoryOutputFilePath = path.join(
+      path.dirname(exportIndexFilePath),
+      `${fileName}${extension.startsWith('.') ? extension : `.${extension}`}`,
+    )
+    if (categoryOutputFilePath === exportIndexFilePath) {
+      categoryOutputFilePath = path.join(
+        path.dirname(exportIndexFilePath),
+        `${fileName}-category${
+          extension.startsWith('.') ? extension : `.${extension}`
+        }`,
+      )
+    }
+    const categoryId = interfaceInfo._category?._id ?? interfaceInfo.catid
+    const owner = this.categoryOutputFilePathOwners.get(categoryOutputFilePath)
+    if (owner != null && owner !== categoryId) {
+      categoryOutputFilePath = path.join(
+        path.dirname(exportIndexFilePath),
+        `${fileName}-${categoryId}${
+          extension.startsWith('.') ? extension : `.${extension}`
+        }`,
+      )
+    }
+    this.categoryOutputFilePathOwners.set(categoryOutputFilePath, categoryId)
+    return {
+      outputFilePath: categoryOutputFilePath,
+      exportIndexFilePath,
+    }
   }
 
   async prepare(): Promise<void> {
@@ -285,7 +459,10 @@ export class Generator {
     const outputFileList: OutputFileList = Object.create(null)
     const logger = this.options.logger ?? console
     const runtime = { config: this.rootConfig, cwd: this.options.cwd, logger }
-    const globalPlugins = this.collectPlugins(this.rootConfig, this.rootConfig.defaults)
+    const globalPlugins = this.collectPlugins(
+      this.rootConfig,
+      this.rootConfig.defaults,
+    )
     const globalContainer = new PluginContainer(globalPlugins, runtime)
 
     await globalContainer.hook('onStart', {
@@ -382,9 +559,7 @@ export class Generator {
                     if (categoryIds.includes(0)) {
                       const projectCats = projectInfo.cats ?? []
                       if (!isEmpty(projectCats)) {
-                        categoryIds.push(
-                          ...projectCats.map(cat => cat._id),
-                        )
+                        categoryIds.push(...projectCats.map(cat => cat._id))
                       } else {
                         const exportCats =
                           (await this.fetchExport({
@@ -430,6 +605,7 @@ export class Generator {
                           Promise<
                             Array<{
                               outputFilePath: string
+                              exportIndexFilePath?: string
                               code: string
                               weights: number[]
                             }>
@@ -466,7 +642,9 @@ export class Generator {
                           syntheticalConfig.target =
                             syntheticalConfig.target || 'typescript'
                           syntheticalConfig.devUrl = projectInfo.getDevUrl
-                            ? projectInfo.getDevUrl(syntheticalConfig.devEnvName!)
+                            ? projectInfo.getDevUrl(
+                                syntheticalConfig.devEnvName!,
+                              )
                             : ''
                           syntheticalConfig.prodUrl = projectInfo.getProdUrl
                             ? projectInfo.getProdUrl(
@@ -483,9 +661,8 @@ export class Generator {
                           )
 
                           // 接口列表
-                          let interfaceList = await this.fetchInterfaceList(
-                            syntheticalConfig,
-                          )
+                          let interfaceList =
+                            await this.fetchInterfaceList(syntheticalConfig)
                           interfaceList = (
                             await Promise.all(
                               interfaceList.map(async interfaceInfo => {
@@ -514,7 +691,8 @@ export class Generator {
                                   syntheticalConfig,
                                 })
                                 // preproccessInterface 返回 false 则剔除当前接口
-                                if (_interfaceInfo === false) return false as any
+                                if (_interfaceInfo === false)
+                                  return false as any
                                 return _interfaceInfo
                               }),
                             )
@@ -531,20 +709,16 @@ export class Generator {
                               Promise<{
                                 categoryUID: string
                                 outputFilePath: string
+                                exportIndexFilePath?: string
                                 weights: number[]
                                 code: string
                               }>
                             >(async interfaceInfo => {
-                              const outputFilePath = path.resolve(
-                                this.options.cwd,
-                                typeof syntheticalConfig.outputFilePath ===
-                                  'function'
-                                  ? syntheticalConfig.outputFilePath(
-                                      interfaceInfo,
-                                      changeCaseLib,
-                                    )
-                                  : syntheticalConfig.outputFilePath!,
-                              )
+                              const { outputFilePath, exportIndexFilePath } =
+                                await this.resolveOutputFilePath(
+                                  syntheticalConfig,
+                                  interfaceInfo,
+                                )
                               let nameRegistry =
                                 nameRegistryByOutputFilePath.get(outputFilePath)
                               if (!nameRegistry) {
@@ -570,6 +744,7 @@ export class Generator {
                               return {
                                 categoryUID,
                                 outputFilePath,
+                                exportIndexFilePath,
                                 weights,
                                 code,
                               }
@@ -582,16 +757,19 @@ export class Generator {
                           )
                           return Object.keys(groupedInterfaceCodes).map(
                             outputFilePath => {
-                                  const group =
-                                    groupedInterfaceCodes[outputFilePath] ?? []
-                                  const categoryCode = [
-                                    ...uniq(
-                                      sortByWeights(
-                                        group,
-                                      ).map(item => item.categoryUID),
-                                    ).map(categoryUID =>
-                                      syntheticalConfig.typesOnly
-                                        ? ''
+                              const group =
+                                groupedInterfaceCodes[outputFilePath] ?? []
+                              const exportIndexFilePath = group.find(
+                                item => item.exportIndexFilePath,
+                              )?.exportIndexFilePath
+                              const categoryCode = [
+                                ...uniq(
+                                  sortByWeights(group).map(
+                                    item => item.categoryUID,
+                                  ),
+                                ).map(categoryUID =>
+                                  syntheticalConfig.typesOnly
+                                    ? ''
                                     : dedent`
                                       const mockUrl${categoryUID} = ${JSON.stringify(
                                         syntheticalConfig.mockUrl,
@@ -607,10 +785,8 @@ export class Generator {
                                       )} as any
                                     `,
                                 ),
-                                    ...sortByWeights(
-                                      group,
-                                    ).map(item => item.code),
-                                  ]
+                                ...sortByWeights(group).map(item => item.code),
+                              ]
                                 .filter(Boolean)
                                 .join('\n\n')
                               if (!outputFileList[outputFilePath]) {
@@ -644,15 +820,30 @@ export class Generator {
                                       : '',
                                 }
                               }
-                                return {
-                                  outputFilePath: outputFilePath,
-                                  code: categoryCode,
-                                  weights: last(
-                                    sortByWeights(
-                                      group,
-                                    ),
-                                  )!.weights,
+                              if (exportIndexFilePath) {
+                                if (!outputFileList[exportIndexFilePath]) {
+                                  outputFileList[exportIndexFilePath] = {
+                                    syntheticalConfig,
+                                    content: [],
+                                    requestFunctionFilePath:
+                                      outputFileList[outputFilePath]!
+                                        .requestFunctionFilePath,
+                                    requestHookMakerFilePath:
+                                      outputFileList[outputFilePath]!
+                                        .requestHookMakerFilePath,
+                                    exportFilePaths: new Set<string>(),
+                                    isExportIndex: true,
+                                  }
                                 }
+                                outputFileList[
+                                  exportIndexFilePath
+                                ]!.exportFilePaths!.add(outputFilePath)
+                              }
+                              return {
+                                outputFilePath: outputFilePath,
+                                code: categoryCode,
+                                weights: last(sortByWeights(group))!.weights,
+                              }
                             },
                           )
                         }),
@@ -705,6 +896,8 @@ export class Generator {
           content,
           requestFunctionFilePath,
           requestHookMakerFilePath,
+          exportFilePaths,
+          isExportIndex,
           // eslint-disable-next-line prefer-const
           syntheticalConfig,
         } = outputEntry
@@ -741,7 +934,7 @@ export class Generator {
           getNormalizedRelativePath,
         }
 
-        if (!syntheticalConfig.typesOnly) {
+        if (!isExportIndex && !syntheticalConfig.typesOnly) {
           if (!(await fs.pathExists(rawRequestFunctionFilePath))) {
             const requestTemplate =
               syntheticalConfig.templates?.requestFunction ??
@@ -779,7 +972,8 @@ export class Generator {
         })
 
         const fileBannerTemplate =
-          syntheticalConfig.templates?.fileBanner ?? DEFAULT_FILE_BANNER_TEMPLATE
+          syntheticalConfig.templates?.fileBanner ??
+          DEFAULT_FILE_BANNER_TEMPLATE
         const fileBanner = await renderTemplate(
           fileBannerTemplate,
           templateContext,
@@ -788,7 +982,25 @@ export class Generator {
         )
 
         // 始终写入主文件
-        const rawOutputContent = dedent`
+        const exportContent = isExportIndex
+          ? [...(exportFilePaths ?? [])]
+              .sort()
+              .map(
+                filePath =>
+                  `export * from ${JSON.stringify(
+                    getNormalizedRelativePath(outputFilePath, filePath),
+                  )}`,
+              )
+              .join('\n')
+          : ''
+
+        const rawOutputContent = isExportIndex
+          ? dedent`
+            ${fileBanner}
+
+            ${exportContent}
+          `
+          : dedent`
           ${fileBanner}
 
           ${
@@ -894,7 +1106,7 @@ export class Generator {
       exec(
         `${command} --target ES2019 --module ESNext --jsx preserve --declaration --esModuleInterop ${JSON.stringify(file)}`,
         { cwd: this.options.cwd, env: process.env },
-        (error) => {
+        error => {
           if (error) reject(error)
           else resolve()
         },
@@ -995,7 +1207,9 @@ export class Generator {
   }
 
   /** 获取项目信息 */
-  async fetchProjectInfo(syntheticalConfig: SyntheticalConfig): Promise<Project> {
+  async fetchProjectInfo(
+    syntheticalConfig: SyntheticalConfig,
+  ): Promise<Project> {
     const projectInfo = await this.fetchProject(syntheticalConfig)
     const projectCats = await this.fetchApi<CategoryList>(
       `${syntheticalConfig.serverUrl}/api/interface/getCatMenu`,

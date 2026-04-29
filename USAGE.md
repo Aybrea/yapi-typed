@@ -143,6 +143,71 @@ export default defineConfig({
 })
 ```
 
+### 按分类拆分文件并统一导出
+
+如果希望每个 YApi 分类生成一个独立文件，同时保留统一入口：
+
+```ts
+export default defineConfig({
+  servers: [
+    {
+      serverUrl: 'https://yapi.example.com',
+      projects: [
+        {
+          token: 'YOUR_PROJECT_TOKEN',
+          categories: [
+            {
+              id: 0,
+              outputFilePath: 'src/api/index.ts',
+             categoryFile: {
+               enabled: true,
+                // 不配置翻译时，会直接使用分类原名生成文件。
+                nameMap: {
+                  用户管理: 'user',
+                  订单接口: 'order',
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ],
+})
+```
+
+生成结果类似：
+
+```ts
+// src/api/index.ts
+export * from './order'
+export * from './user'
+```
+
+也可以接入自托管 LibreTranslate，把中文分类名翻译成英文文件名：
+
+```ts
+categoryFile: {
+  enabled: true,
+  libreTranslate: {
+    endpoint: 'http://localhost:5000',
+    source: 'zh',
+    target: 'en',
+  },
+}
+```
+
+如果需要接入 DeepL、Google Cloud Translation 或其他服务，可以使用自定义翻译函数：
+
+```ts
+categoryFile: {
+  enabled: true,
+  async translate(categoryName) {
+    return await translateCategoryName(categoryName)
+  },
+}
+```
+
 ### 自定义请求函数
 
 你可以自定义请求函数的实现：
