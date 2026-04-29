@@ -159,8 +159,9 @@ export default defineConfig({
             {
               id: 0,
               outputFilePath: 'src/api/index.ts',
-             categoryFile: {
-               enabled: true,
+              categoryFile: {
+                enabled: true,
+                clean: true,
                 // 不配置翻译时，会直接使用分类原名生成文件。
                 nameMap: {
                   用户管理: 'user',

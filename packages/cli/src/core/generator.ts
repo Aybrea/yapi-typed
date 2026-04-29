@@ -295,6 +295,46 @@ export class Generator {
     return configs.flatMap(item => item?.plugins ?? [])
   }
 
+  private async cleanCategoryOutputDirs(
+    outputFileList: OutputFileList,
+  ): Promise<void> {
+    const cleanDirs = new Map<string, Set<string>>()
+
+    for (const [outputFilePath, outputEntry] of Object.entries(outputFileList)) {
+      if (
+        !outputEntry.isExportIndex ||
+        !outputEntry.syntheticalConfig.categoryFile?.clean
+      ) {
+        continue
+      }
+
+      const dir = path.dirname(outputFilePath)
+      const protectedFilePaths = cleanDirs.get(dir) ?? new Set<string>()
+      protectedFilePaths.add(path.resolve(outputFilePath))
+      protectedFilePaths.add(path.resolve(outputEntry.requestFunctionFilePath))
+      if (outputEntry.requestHookMakerFilePath) {
+        protectedFilePaths.add(path.resolve(outputEntry.requestHookMakerFilePath))
+      }
+      cleanDirs.set(dir, protectedFilePaths)
+    }
+
+    await Promise.all(
+      [...cleanDirs].map(async ([dir, protectedFilePaths]) => {
+        if (!(await fs.pathExists(dir))) return
+
+        const entries = await fs.readdir(dir)
+        await Promise.all(
+          entries.map(async entry => {
+            const entryPath = path.join(dir, entry)
+            const resolvedEntryPath = path.resolve(entryPath)
+            if (protectedFilePaths.has(resolvedEntryPath)) return
+            await fs.remove(entryPath)
+          }),
+        )
+      }),
+    )
+  }
+
   private async translateCategoryNameByLibreTranslate(
     categoryName: string,
     categoryFileConfig: CategoryFileConfig,
@@ -887,6 +927,7 @@ export class Generator {
   async write(outputFileList: OutputFileList): Promise<void[]> {
     const templateBaseDir = this.getTemplateBaseDir()
     const logger = this.options.logger ?? console
+    await this.cleanCategoryOutputDirs(outputFileList)
 
     return Promise.all(
       Object.keys(outputFileList).map(async outputFilePath => {
@@ -1043,7 +1084,7 @@ export class Generator {
                 type UserRequestRestArgs = RequestFunctionRestArgs<typeof request>
 
                 // Request: 目前 React Hooks 功能有用到
-                export type Request<TRequestData, TRequestConfig extends RequestConfig, TRequestResult> = (
+                ${syntheticalConfig.categoryFile?.enabled ? '' : 'export '}type Request<TRequestData, TRequestConfig extends RequestConfig, TRequestResult> = (
                   TRequestConfig['requestDataOptional'] extends true
                     ? (requestData?: TRequestData, ...args: RequestFunctionRestArgs<typeof request>) => TRequestResult
                     : (requestData: TRequestData, ...args: RequestFunctionRestArgs<typeof request>) => TRequestResult

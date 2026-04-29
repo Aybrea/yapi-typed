@@ -439,6 +439,16 @@ export interface CategoryFileConfig {
   nameMap?: Record<string, string>
 
   /**
+   * 是否在重新生成时清理入口文件上一次导出的旧分类文件。
+   *
+   * 只会删除带有 yapi-typed 生成标记的文件，不会删除 `outputFilePath`、`requestFunctionFilePath`
+   * 或其他手写文件。
+   *
+   * @default false
+   */
+  clean?: boolean
+
+  /**
    * 自定义分类文件名。优先级最高。
    */
   getFileName?(

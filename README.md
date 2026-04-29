@@ -119,6 +119,7 @@ export default defineConfig({
               outputFilePath: 'src/api/index.ts',
               categoryFile: {
                 enabled: true,
+                clean: true,
                 // Without translation, the original category name is used.
                 nameMap: {
                   用户管理: 'user',
