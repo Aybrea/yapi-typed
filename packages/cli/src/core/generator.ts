@@ -1494,7 +1494,7 @@ export class Generator {
             >>
 
             ${genComment(title => `接口 ${title} 的 **请求配置**`)}
-            const ${requestConfigName}: ${requestConfigTypeName} = ${COMPRESSOR_TREE_SHAKING_ANNOTATION} {
+            const ${requestConfigName}: ${requestConfigTypeName} = {
               mockUrl: mockUrl${categoryUID},
               devUrl: devUrl${categoryUID},
               prodUrl: prodUrl${categoryUID},
@@ -1542,7 +1542,7 @@ export class Generator {
             }
 
             ${genComment(title => `接口 ${title} 的 **请求函数**`)}
-            export const ${uniqueRequestFunctionName} = ${COMPRESSOR_TREE_SHAKING_ANNOTATION} (
+            export const ${uniqueRequestFunctionName} = (
               requestData${
                 isRequestDataOptional ? '?' : ''
               }: ${requestDataTypeName},
