@@ -2,6 +2,7 @@
   "name": "yapi-typed",
   "version": "0.1.5",
   "description": "Modern YApi to TypeScript generator with plugins and templates",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "yapi-typed": "dist/cli.cjs"
