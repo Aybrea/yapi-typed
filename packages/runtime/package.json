@@ -1,6 +1,6 @@
 {
   "name": "yapi-typed-runtime",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Browser-safe runtime for yapi-typed generated clients",
   "type": "module",
   "files": [
