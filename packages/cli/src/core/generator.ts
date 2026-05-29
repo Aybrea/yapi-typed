@@ -72,8 +72,15 @@ interface OutputFileList {
 /**
  * @see https://webpack.js.org/guides/tree-shaking/#mark-a-function-call-as-side-effect-free
  * @see https://terser.org/docs/api-reference.html#annotations
+ * @see https://rolldown.rs/reference/InputOptions.treeshake#manualpurefunctions
  */
 const COMPRESSOR_TREE_SHAKING_ANNOTATION = '/*#__PURE__*/'
+const PURE_REQUEST_CONFIG_HELPER_NAME = '__yapiTypedDefineRequestConfig'
+const PURE_REQUEST_HELPER_NAME = '__yapiTypedDefineRequest'
+const GENERATED_HELPER_IDENTIFIERS = [
+  PURE_REQUEST_CONFIG_HELPER_NAME,
+  PURE_REQUEST_HELPER_NAME,
+]
 const require = createRequire(import.meta.url)
 
 const DEFAULT_FILE_BANNER_TEMPLATE = dedent`
@@ -762,7 +769,9 @@ export class Generator {
                               let nameRegistry =
                                 nameRegistryByOutputFilePath.get(outputFilePath)
                               if (!nameRegistry) {
-                                nameRegistry = new Set<string>()
+                                nameRegistry = new Set<string>(
+                                  GENERATED_HELPER_IDENTIFIERS,
+                                )
                                 nameRegistryByOutputFilePath.set(
                                   outputFilePath,
                                   nameRegistry,
@@ -1091,6 +1100,19 @@ export class Generator {
                 ) & {
                   requestConfig: TRequestConfig
                 }
+
+                const ${PURE_REQUEST_CONFIG_HELPER_NAME} = <TRequestConfig extends RequestConfig>(
+                  requestConfig: TRequestConfig,
+                ) => requestConfig
+
+                const ${PURE_REQUEST_HELPER_NAME} = <TRequestData, TRequestConfig extends RequestConfig, TRequestResult>(
+                  requestFunction: TRequestConfig['requestDataOptional'] extends true
+                    ? (requestData?: TRequestData, ...args: RequestFunctionRestArgs<typeof request>) => TRequestResult
+                    : (requestData: TRequestData, ...args: RequestFunctionRestArgs<typeof request>) => TRequestResult,
+                  requestConfig: TRequestConfig,
+                ): Request<TRequestData, TRequestConfig, TRequestResult> => Object.assign(requestFunction, {
+                  requestConfig,
+                })
 
                 ${content.join('\n\n').trim()}
               `
@@ -1494,7 +1516,7 @@ export class Generator {
             >>
 
             ${genComment(title => `接口 ${title} 的 **请求配置**`)}
-            const ${requestConfigName}: ${requestConfigTypeName} = {
+            const ${requestConfigName}: ${requestConfigTypeName} = ${COMPRESSOR_TREE_SHAKING_ANNOTATION} ${PURE_REQUEST_CONFIG_HELPER_NAME}<${requestConfigTypeName}>({
               mockUrl: mockUrl${categoryUID},
               devUrl: devUrl${categoryUID},
               prodUrl: prodUrl${categoryUID},
@@ -1539,22 +1561,23 @@ export class Generator {
                 QueryStringArrayFormat.brackets
               },
               extraInfo: ${JSON.stringify(requestFunctionExtraInfo)},
-            }
+            })
 
             ${genComment(title => `接口 ${title} 的 **请求函数**`)}
-            export const ${uniqueRequestFunctionName} = (
-              requestData${
-                isRequestDataOptional ? '?' : ''
-              }: ${requestDataTypeName},
-              ...args: UserRequestRestArgs
-            ) => {
-              return request<${responseDataTypeName}>(
-                prepare(${requestConfigName}, requestData),
-                ...args,
-              )
-            }
-
-            ${uniqueRequestFunctionName}.requestConfig = ${requestConfigName}
+            export const ${uniqueRequestFunctionName} = ${COMPRESSOR_TREE_SHAKING_ANNOTATION} ${PURE_REQUEST_HELPER_NAME}(
+              (
+                requestData${
+                  isRequestDataOptional ? '?' : ''
+                }: ${requestDataTypeName},
+                ...args: UserRequestRestArgs
+              ) => {
+                return request<${responseDataTypeName}>(
+                  prepare(${requestConfigName}, requestData),
+                  ...args,
+                )
+              },
+              ${requestConfigName},
+            )
 
             ${
               !syntheticalConfig.reactHooks ||
